@@ -416,7 +416,15 @@ main.app-main {
   box-shadow: var(--shadow-sm);
 }
 
-.toolbar-left, .toolbar-right {
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+}
+
+.toolbar-right {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -425,47 +433,113 @@ main.app-main {
 
 .search-box {
   position: relative;
-  min-width: 240px;
+  display: flex;
+  align-items: center;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1 1 260px;
 }
 
 .search-icon {
   position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 0.85rem;
   color: var(--text-muted);
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  z-index: 2;
 }
 
 .search-input {
   width: 100%;
+  height: 38px;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.45rem 0.75rem 0.45rem 2.25rem;
+  padding: 0 4.2rem 0 2.4rem;
   border-radius: var(--radius-md);
   font-size: 0.875rem;
+  line-height: 38px;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .search-input:focus {
   border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow), inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.search-box:focus-within .search-icon {
+  color: var(--accent-primary);
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 2.2rem;
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.search-clear-btn.visible {
+  display: flex;
+}
+
+.search-clear-btn:hover {
+  background: var(--border-light);
+  color: var(--text-primary);
+}
+
+.search-kbd-badge {
+  position: absolute;
+  right: 0.65rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .filter-select {
+  height: 38px;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.45rem 0.75rem;
+  padding: 0 0.85rem;
   border-radius: var(--radius-md);
   font-size: 0.875rem;
+  line-height: 38px;
   outline: none;
   cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .filter-select:focus {
   border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.filter-select:hover {
+  border-color: var(--border-light);
 }
 
 .view-toggle-group {
@@ -664,12 +738,12 @@ main.app-main {
   background: var(--bg-card-hover);
   border-color: var(--border-light);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.25);
 }
 
 .task-card.is-active-running {
   border: 2px solid var(--accent-primary);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.35);
   background: linear-gradient(180deg, var(--bg-card), rgba(59, 130, 246, 0.08));
 }
 
@@ -686,7 +760,19 @@ main.app-main {
   gap: 0.5rem;
 }
 
-/* Priority Badges */
+.card-top-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Priority Badges - Clickable */
 .priority-badge {
   display: inline-flex;
   align-items: center;
@@ -697,6 +783,14 @@ main.app-main {
   letter-spacing: 0.04em;
   padding: 0.2rem 0.55rem;
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.priority-badge:hover {
+  transform: scale(1.05);
+  filter: brightness(1.2);
 }
 
 .priority-badge.urgent {
@@ -732,6 +826,23 @@ main.app-main {
   border: 1px solid rgba(100, 116, 139, 0.4);
 }
 
+.card-cat-mover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.card-cat-mover:hover {
+  background: var(--border-light);
+  color: var(--text-primary);
+}
+
 .status-badge {
   font-size: 0.72rem;
   font-weight: 600;
@@ -759,34 +870,151 @@ main.app-main {
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+/* Card Title Row with Circular Checkbox */
+.card-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.card-complete-toggle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-light);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: transparent;
+}
+
+.card-complete-toggle:hover {
+  border-color: var(--success);
+  color: rgba(16, 185, 129, 0.6);
+  transform: scale(1.1);
+}
+
+.card-complete-toggle.is-checked {
+  border-color: var(--success);
+  background: var(--success);
+  color: #ffffff;
+}
+
 .card-title {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
   cursor: pointer;
+  flex: 1;
+  transition: color 0.15s ease;
 }
 
 .card-title:hover {
   color: var(--accent-primary);
 }
 
+.card-title.is-done {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Collapsible Details Section */
+.card-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  width: fit-content;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.card-details-toggle:hover {
+  color: var(--accent-primary);
+}
+
+.details-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.details-chevron.rotated {
+  transform: rotate(90deg);
+}
+
+.details-badge-pill {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+
+.card-details-collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-details-collapsible.collapsed {
+  display: none;
+}
+
 .card-notes {
   font-size: 0.8rem;
   color: var(--text-secondary);
-  line-height: 1.4;
-  white-space: pre-line;
+  line-height: 1.45;
   background: var(--bg-input);
-  padding: 0.5rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   border-radius: var(--radius-sm);
-  border-left: 2px solid var(--border-light);
+  border-left: 3px solid var(--accent-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.checklist-checkbox {
+  margin-top: 3px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.checklist-text.done {
+  text-decoration: line-through;
+  color: var(--text-muted);
 }
 
 .card-meta-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
   font-size: 0.78rem;
 }
 
@@ -798,6 +1026,24 @@ main.app-main {
   color: var(--text-secondary);
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.btn-quick-extend {
+  background: transparent;
+  border: 1px dashed var(--border-light);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quick-extend:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
 .meta-pill.reminder-active {

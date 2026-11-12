@@ -53,6 +53,8 @@ const PRIORITY_LABELS = {
 const STATE = {
   tasks: [],
   activeTaskId: null,
+  expandedTaskIds: new Set(),
+  allDetailsExpanded: false,
   timerInterval: null,
   reminderInterval: null,
   currentView: 'categories', // 'categories' | 'kanban' | 'analytics'
@@ -945,9 +947,166 @@ function renderAnalyticsView(container) {
   container.innerHTML = html;
 }
 
+// --- Interactive Card Actions & Helpers ---
+function cycleTaskPriority(taskId, event) {
+  if (event) event.stopPropagation();
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const sequence = ['urgent', 'high', 'medium', 'low'];
+  const currentIndex = sequence.indexOf(task.priority);
+  const nextIndex = (currentIndex + 1) % sequence.length;
+  task.priority = sequence[nextIndex];
+  task.updatedAt = new Date().toISOString();
+  saveTasks();
+  render();
+}
+
+function quickMoveTaskCategory(taskId, newCategory, event) {
+  if (event) event.stopPropagation();
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task || task.category === newCategory) return;
+  task.category = newCategory;
+  task.updatedAt = new Date().toISOString();
+  saveTasks();
+  render();
+}
+
+function quickAddEstimatedMinutes(taskId, minutesToAdd, event) {
+  if (event) event.stopPropagation();
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  task.estimatedMinutes = Math.max(5, (task.estimatedMinutes || 0) + minutesToAdd);
+  task.updatedAt = new Date().toISOString();
+  saveTasks();
+  render();
+  updateTimerHud();
+}
+
+function toggleTaskCompletion(taskId, event) {
+  if (event) event.stopPropagation();
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  if (task.status === 'completed') {
+    reopenTask(taskId);
+  } else {
+    completeAndCloseTask(taskId);
+  }
+}
+
+function toggleTaskDetails(taskId, event) {
+  if (event) event.stopPropagation();
+  if (STATE.expandedTaskIds.has(taskId)) {
+    STATE.expandedTaskIds.delete(taskId);
+  } else {
+    STATE.expandedTaskIds.add(taskId);
+  }
+
+  const detailsEl = document.getElementById(`card-details-${taskId}`);
+  const chevronEl = document.getElementById(`details-chevron-${taskId}`);
+  const labelEl = document.getElementById(`details-label-${taskId}`);
+  const isExpanded = STATE.expandedTaskIds.has(taskId);
+
+  if (detailsEl) {
+    detailsEl.classList.toggle('collapsed', !isExpanded);
+  }
+  if (chevronEl) {
+    chevronEl.classList.toggle('rotated', isExpanded);
+  }
+  if (labelEl) {
+    labelEl.textContent = isExpanded ? 'Hide Details' : 'Show Details';
+  }
+}
+
+function toggleAllDetails() {
+  STATE.allDetailsExpanded = !STATE.allDetailsExpanded;
+  if (STATE.allDetailsExpanded) {
+    STATE.tasks.forEach(t => STATE.expandedTaskIds.add(t.id));
+  } else {
+    STATE.expandedTaskIds.clear();
+  }
+  const btnText = document.getElementById('toggleAllDetailsText');
+  if (btnText) {
+    btnText.textContent = STATE.allDetailsExpanded ? 'Collapse Details' : 'Expand Details';
+  }
+  render();
+}
+
+function clearSearch() {
+  STATE.filters.search = '';
+  const searchInput = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('searchClearBtn');
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.focus();
+  }
+  if (clearBtn) {
+    clearBtn.classList.remove('visible');
+  }
+  render();
+}
+
+function toggleNoteChecklist(taskId, lineIndex) {
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task || !task.notes) return;
+  const lines = task.notes.split('\n');
+  if (lineIndex >= 0 && lineIndex < lines.length) {
+    const line = lines[lineIndex];
+    if (line.includes('[ ]')) {
+      lines[lineIndex] = line.replace('[ ]', '[x]');
+    } else if (line.includes('[x]') || line.includes('[X]')) {
+      lines[lineIndex] = line.replace(/\[[xX]\]/, '[ ]');
+    } else if (line.match(/^([-*•])\s+/)) {
+      lines[lineIndex] = line.replace(/^([-*•])\s+/, '- [x] ');
+    }
+    task.notes = lines.join('\n');
+    task.updatedAt = new Date().toISOString();
+    saveTasks();
+    render();
+  }
+}
+
+function renderInteractiveNotes(taskId, rawNotes) {
+  if (!rawNotes) return { html: '', totalItems: 0, doneItems: 0 };
+  const lines = rawNotes.split('\n');
+  let totalItems = 0;
+  let doneItems = 0;
+
+  const renderedLines = lines.map((line, idx) => {
+    const trimmed = line.trim();
+    // Checklist pattern: - [ ] or - [x]
+    const checkMatch = trimmed.match(/^[-*]\s*\[([ xX])\]\s*(.*)$/);
+    if (checkMatch) {
+      totalItems++;
+      const isChecked = checkMatch[1].toLowerCase() === 'x';
+      if (isChecked) doneItems++;
+      return `
+        <label class="checklist-item" onclick="event.stopPropagation()">
+          <input type="checkbox" class="checklist-checkbox" ${isChecked ? 'checked' : ''} onchange="toggleNoteChecklist('${taskId}', ${idx})">
+          <span class="checklist-text ${isChecked ? 'done' : ''}">${escapeHtml(checkMatch[2])}</span>
+        </label>
+      `;
+    }
+    // Bullet pattern: - or * or •
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    if (bulletMatch) {
+      totalItems++;
+      return `
+        <label class="checklist-item" onclick="event.stopPropagation()">
+          <input type="checkbox" class="checklist-checkbox" onchange="toggleNoteChecklist('${taskId}', ${idx})">
+          <span class="checklist-text">${escapeHtml(bulletMatch[1])}</span>
+        </label>
+      `;
+    }
+    return `<div>${escapeHtml(line)}</div>`;
+  }).join('');
+
+  return { html: renderedLines, totalItems, doneItems };
+}
+
 function renderTaskCard(task) {
   const isRunning = task.status === 'in_progress' && task.isTimerRunning;
   const isCompleted = task.status === 'completed';
+  const isExpanded = STATE.expandedTaskIds.has(task.id);
   const currentDurationSecs = getTaskCurrentDurationSeconds(task);
 
   // Reminder status
@@ -993,6 +1152,17 @@ function renderTaskCard(task) {
     `;
   }
 
+  // Parse notes and checklist items
+  const notesParsed = renderInteractiveNotes(task.id, task.notes);
+  const hasDetails = Boolean(task.notes || (task.tags && task.tags.length > 0));
+
+  let checklistPill = '';
+  if (notesParsed.totalItems > 0) {
+    checklistPill = `<span class="details-badge-pill" title="Action items">${notesParsed.doneItems}/${notesParsed.totalItems} done</span>`;
+  } else if (task.notes) {
+    checklistPill = `<span class="details-badge-pill">Notes</span>`;
+  }
+
   // Action buttons
   let actionButtonsHtml = '';
   if (isCompleted) {
@@ -1029,30 +1199,78 @@ function renderTaskCard(task) {
          id="task-card-${task.id}" 
          draggable="true" 
          ondragstart="handleDragStart(event, '${task.id}')">
+      
+      <!-- Card Top: Interactive Priority & Quick Category Mover -->
       <div class="card-top-meta">
-        <span class="priority-badge ${task.priority}">${task.priority.toUpperCase()}</span>
-        <span class="status-badge ${task.status}">${task.status === 'in_progress' ? '⚡️ In Progress' : task.status === 'completed' ? '✓ Closed' : 'To Do'}</span>
+        <div class="card-top-left">
+          <span class="priority-badge ${task.priority}" 
+                onclick="cycleTaskPriority('${task.id}', event)" 
+                title="Priority: ${task.priority.toUpperCase()} (Click to change)">
+            ${task.priority.toUpperCase()}
+          </span>
+          <span class="status-badge ${task.status}">
+            ${task.status === 'in_progress' ? '⚡️ In Progress' : task.status === 'completed' ? '✓ Closed' : 'To Do'}
+          </span>
+        </div>
+
+        <div class="card-top-right">
+          <select class="card-cat-mover" onchange="quickMoveTaskCategory('${task.id}', this.value, event)" title="Quick change category" onclick="event.stopPropagation()">
+            <option value="discussions" ${task.category === 'discussions' ? 'selected' : ''}>💬 Discussions</option>
+            <option value="issues" ${task.category === 'issues' ? 'selected' : ''}>🚨 Issues</option>
+            <option value="research" ${task.category === 'research' ? 'selected' : ''}>🔬 Research</option>
+            <option value="additional" ${task.category === 'additional' ? 'selected' : ''}>📋 Additional</option>
+          </select>
+        </div>
       </div>
 
-      <div class="card-title" onclick="openEditModal('${task.id}')">${escapeHtml(task.title)}</div>
+      <!-- Card Title Row with Quick Completion Checkbox -->
+      <div class="card-title-row">
+        <button class="card-complete-toggle ${isCompleted ? 'is-checked' : ''}" 
+                onclick="toggleTaskCompletion('${task.id}', event)" 
+                title="${isCompleted ? 'Click to reopen task' : 'Click to complete and close task'}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <div class="card-title ${isCompleted ? 'is-done' : ''}" onclick="openEditModal('${task.id}')">
+          ${escapeHtml(task.title)}
+        </div>
+      </div>
 
-      ${task.notes ? `<div class="card-notes">${escapeHtml(task.notes)}</div>` : ''}
-
+      <!-- Card Meta Row (Estimate + Reminder + Variance + Quick Extend) -->
       <div class="card-meta-row">
         <div class="meta-pill" title="Estimated Time">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           <span>Est: ${formatMinutes(task.estimatedMinutes)}</span>
         </div>
+        ${!isCompleted ? `
+          <button class="btn-quick-extend" onclick="quickAddEstimatedMinutes('${task.id}', 15, event)" title="Add +15 minutes to estimate">+15m</button>
+        ` : ''}
         ${reminderHtml}
         ${timeMetricsHtml}
       </div>
 
-      ${task.tags && task.tags.length > 0 ? `
-        <div class="tags-row">
-          ${task.tags.map(tag => `<span class="tag-badge">#${escapeHtml(tag)}</span>`).join('')}
+      <!-- Hideable Details Section -->
+      ${hasDetails ? `
+        <button class="card-details-toggle" onclick="toggleTaskDetails('${task.id}', event)">
+          <span class="details-chevron ${isExpanded ? 'rotated' : ''}" id="details-chevron-${task.id}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </span>
+          <span id="details-label-${task.id}">${isExpanded ? 'Hide Details' : 'Show Details'}</span>
+          ${checklistPill}
+        </button>
+
+        <div class="card-details-collapsible ${isExpanded ? '' : 'collapsed'}" id="card-details-${task.id}">
+          ${task.notes ? `<div class="card-notes">${notesParsed.html}</div>` : ''}
+          ${task.tags && task.tags.length > 0 ? `
+            <div class="tags-row">
+              ${task.tags.map(tag => `<span class="tag-badge">#${escapeHtml(tag)}</span>`).join('')}
+            </div>
+          ` : ''}
         </div>
       ` : ''}
 
+      <!-- Card Bottom Actions -->
       <div class="card-actions">
         <div class="action-btns-left">
           ${actionButtonsHtml}
@@ -1362,9 +1580,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Search input binding
   const searchInput = document.getElementById('searchInput');
+  const searchClearBtn = document.getElementById('searchClearBtn');
   if (searchInput) {
     searchInput.addEventListener('input', e => {
       STATE.filters.search = e.target.value;
+      if (searchClearBtn) {
+        searchClearBtn.classList.toggle('visible', Boolean(e.target.value.trim()));
+      }
       render();
     });
   }
