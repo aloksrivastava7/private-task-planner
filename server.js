@@ -5,18 +5,12 @@ const url = require('url');
 
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'tasks.json');
-const SAMPLE_FILE = path.join(__dirname, 'sample_data.json');
 
-// Ensure tasks.json exists; initialize with sample data if absent
+// Ensure tasks.json exists
 function ensureDataFile() {
   if (!fs.existsSync(DATA_FILE)) {
-    if (fs.existsSync(SAMPLE_FILE)) {
-      fs.copyFileSync(SAMPLE_FILE, DATA_FILE);
-      console.log('Initialized tasks.json with sample data.');
-    } else {
-      fs.writeFileSync(DATA_FILE, '[]', 'utf8');
-      console.log('Initialized empty tasks.json.');
-    }
+    fs.writeFileSync(DATA_FILE, '[]', 'utf8');
+    console.log('Initialized empty tasks.json.');
   }
 }
 

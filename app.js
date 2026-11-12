@@ -194,25 +194,35 @@ function formatDateTimePretty(isoString) {
 const isLocalNodeServer = ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.protocol.startsWith('http');
 
 async function loadTasks() {
-  // First attempt local storage
+  // 1. Load from local storage
   const local = localStorage.getItem('office_tasks_data');
-  if (local) {
+  if (local !== null) {
     try {
-      STATE.tasks = JSON.parse(local);
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed)) {
+        // Strip out any legacy hardcoded sample tasks (IDs starting with task-init-)
+        STATE.tasks = parsed.filter(t => !t.id || !t.id.startsWith('task-init-'));
+      }
     } catch (e) {
       console.error('Failed to parse local storage tasks', e);
+      STATE.tasks = [];
     }
+  } else {
+    STATE.tasks = [];
   }
 
-  // Attempt to sync from backend server API if running on local Node server
+  // 2. Sync from backend server API if running on local Node server
   if (isLocalNodeServer) {
     try {
       const res = await fetch('/api/tasks');
       if (res.ok) {
         const serverTasks = await res.json();
-        if (Array.isArray(serverTasks) && serverTasks.length > 0) {
-          STATE.tasks = serverTasks;
-          localStorage.setItem('office_tasks_data', JSON.stringify(serverTasks));
+        if (Array.isArray(serverTasks)) {
+          const cleanServerTasks = serverTasks.filter(t => !t.id || !t.id.startsWith('task-init-'));
+          // If local was empty or server has newer tasks
+          if (cleanServerTasks.length > 0 || local === null) {
+            STATE.tasks = cleanServerTasks;
+          }
         }
       }
     } catch (err) {
@@ -220,18 +230,8 @@ async function loadTasks() {
     }
   }
 
-  // If still empty, load sample defaults
-  if (!STATE.tasks || STATE.tasks.length === 0) {
-    try {
-      const sampleRes = await fetch('./sample_data.json');
-      if (sampleRes.ok) {
-        STATE.tasks = await sampleRes.json();
-        saveTasks();
-      }
-    } catch (e) {
-      console.warn('Sample data fetch fallback', e);
-    }
-  }
+  // Save the cleaned tasks back to storage
+  saveTasks();
 
   // Check if any task was in progress and restore timer
   const runningTask = STATE.tasks.find(t => t.status === 'in_progress' && t.isTimerRunning);
