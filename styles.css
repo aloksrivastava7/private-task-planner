@@ -250,6 +250,25 @@ header.app-header {
   opacity: 0.9;
 }
 
+.btn-warning {
+  background-color: var(--warning);
+  color: #1e293b;
+  font-weight: 600;
+}
+.btn-warning:hover {
+  opacity: 0.9;
+}
+
+.btn-warning-ghost {
+  background: transparent;
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.btn-warning-ghost:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+}
+
 .btn-danger {
   background-color: var(--danger);
   color: #ffffff;
@@ -753,6 +772,11 @@ main.app-main {
   background: rgba(16, 185, 129, 0.03);
 }
 
+.task-card.is-on-hold {
+  border-left: 3px solid #f59e0b;
+  background: linear-gradient(180deg, var(--bg-card), rgba(245, 158, 11, 0.04));
+}
+
 .card-top-meta {
   display: flex;
   align-items: center;
@@ -848,6 +872,13 @@ main.app-main {
   font-weight: 600;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.status-badge:hover {
+  filter: brightness(1.2);
 }
 
 .status-badge.todo {
@@ -859,6 +890,15 @@ main.app-main {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
   border: 1px solid rgba(34, 197, 94, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.status-badge.on_hold {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -1110,12 +1150,17 @@ main.app-main {
 /* Kanban Workflow View */
 .kanban-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1300px) {
+  .kanban-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
   .kanban-grid {
     grid-template-columns: 1fr;
   }
@@ -1335,6 +1380,18 @@ main.app-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.form-row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 540px) {
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
 }
 
 .quick-estimate-chips {

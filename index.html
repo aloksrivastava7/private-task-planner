@@ -148,6 +148,7 @@
           <option value="all">All Statuses</option>
           <option value="todo">📝 To Do</option>
           <option value="in_progress">⚡️ In Progress</option>
+          <option value="on_hold">⏸️ On Hold</option>
           <option value="completed">✅ Closed</option>
         </select>
 
@@ -220,7 +221,7 @@
             <input type="text" id="formTitle" class="form-input" placeholder="e.g. Discuss API spec with backend team..." required>
           </div>
 
-          <div class="form-row-2">
+          <div class="form-row-3">
             <div class="form-group">
               <label class="form-label" for="formCategory">Office Section / Category *</label>
               <select id="formCategory" class="form-select" required>
@@ -240,12 +241,22 @@
                 <option value="low">⚪️ Low (P3)</option>
               </select>
             </div>
+
+            <div class="form-group">
+              <label class="form-label" for="formStatus">Status *</label>
+              <select id="formStatus" class="form-select" required>
+                <option value="todo" selected>📝 To Do</option>
+                <option value="in_progress">⚡️ In Progress</option>
+                <option value="on_hold">⏸️ On Hold</option>
+                <option value="completed">✅ Closed</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label" for="formEstimatedMinutes">Time Estimate (minutes)</label>
-              <input type="number" id="formEstimatedMinutes" class="form-input" min="1" max="1440" step="5" placeholder="45" value="45">
+              <input type="number" id="formEstimatedMinutes" class="form-input" min="1" max="1440" step="1" placeholder="45" value="45">
               <div class="quick-estimate-chips">
                 <button type="button" class="chip-btn" onclick="setQuickEstimate(15)">15m</button>
                 <button type="button" class="chip-btn" onclick="setQuickEstimate(30)">30m</button>

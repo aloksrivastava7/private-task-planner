@@ -347,14 +347,48 @@ function reopenTask(taskId) {
   const task = STATE.tasks.find(t => t.id === taskId);
   if (!task) return;
 
+  if (task.isTimerRunning && task.timerStartedAt) {
+    const elapsed = Math.floor((Date.now() - task.timerStartedAt) / 1000);
+    task.timeSpentSeconds = (task.timeSpentSeconds || 0) + Math.max(0, elapsed);
+    task.timerStartedAt = null;
+  }
   task.status = 'todo';
   task.completedAt = null;
   task.isTimerRunning = false;
   task.timerStartedAt = null;
   task.updatedAt = new Date().toISOString();
 
+  if (STATE.activeTaskId === taskId) {
+    STATE.activeTaskId = null;
+  }
+
   saveTasks();
   render();
+  updateTimerHud();
+}
+
+function putTaskOnHold(taskId) {
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  if (task.isTimerRunning && task.timerStartedAt) {
+    const elapsed = Math.floor((Date.now() - task.timerStartedAt) / 1000);
+    task.timeSpentSeconds = (task.timeSpentSeconds || 0) + Math.max(0, elapsed);
+    task.timerStartedAt = null;
+  }
+  task.status = 'on_hold';
+  task.completedAt = null;
+  task.isTimerRunning = false;
+  task.timerStartedAt = null;
+  task.updatedAt = new Date().toISOString();
+
+  if (STATE.activeTaskId === taskId) {
+    STATE.activeTaskId = null;
+  }
+
+  saveTasks();
+  render();
+  updateTimerHud();
 }
 
 // --- Live Timer HUD updates ---
@@ -592,6 +626,7 @@ function openStandupModal() {
   const today = new Date().toDateString();
   const completedToday = STATE.tasks.filter(t => t.status === 'completed' && t.completedAt && new Date(t.completedAt).toDateString() === today);
   const inProgress = STATE.tasks.filter(t => t.status === 'in_progress');
+  const onHoldTasks = STATE.tasks.filter(t => t.status === 'on_hold');
   const urgentOrHighTodo = STATE.tasks.filter(t => t.status === 'todo' && (t.priority === 'urgent' || t.priority === 'high'));
 
   let totalSecsToday = 0;
@@ -619,6 +654,14 @@ function openStandupModal() {
       const cat = CATEGORIES[t.category]?.title || t.category;
       const currentDuration = getTaskCurrentDurationSeconds(t);
       md += `• [${cat}] ${t.title} — Active elapsed: ${formatSeconds(currentDuration)} (Est: ${formatMinutes(t.estimatedMinutes)})\n`;
+    });
+  }
+
+  if (onHoldTasks.length > 0) {
+    md += `\n**⏸️ On Hold (${onHoldTasks.length}):**\n`;
+    onHoldTasks.forEach(t => {
+      const cat = CATEGORIES[t.category]?.title || t.category;
+      md += `• [${cat}] ${t.title} (Est: ${formatMinutes(t.estimatedMinutes)})\n`;
     });
   }
 
@@ -795,6 +838,7 @@ function renderKanbanView(container) {
   const stages = [
     { id: 'todo', title: 'To Do', icon: '📝', tasks: allFiltered.filter(t => t.status === 'todo') },
     { id: 'in_progress', title: 'In Progress', icon: '⚡️', tasks: allFiltered.filter(t => t.status === 'in_progress') },
+    { id: 'on_hold', title: 'On Hold', icon: '⏸️', tasks: allFiltered.filter(t => t.status === 'on_hold') },
     { id: 'completed', title: 'Closed & Completed', icon: '✅', tasks: allFiltered.filter(t => t.status === 'completed') }
   ];
 
@@ -831,6 +875,7 @@ function renderAnalyticsView(container) {
   const totalTasks = STATE.tasks.length;
   const completedTasks = STATE.tasks.filter(t => t.status === 'completed');
   const inProgressTasks = STATE.tasks.filter(t => t.status === 'in_progress');
+  const onHoldTasks = STATE.tasks.filter(t => t.status === 'on_hold');
   const todoTasks = STATE.tasks.filter(t => t.status === 'todo');
 
   let totalTrackedSecs = 0;
@@ -883,7 +928,7 @@ function renderAnalyticsView(container) {
         <div class="metric-card">
           <div class="metric-label">In Progress Now</div>
           <div class="metric-value" style="color: var(--warning);">${inProgressTasks.length}</div>
-          <div class="metric-desc">${todoTasks.length} queued in backlog</div>
+          <div class="metric-desc">${todoTasks.length} backlog · ${onHoldTasks.length} on hold</div>
         </div>
 
         <div class="metric-card">
@@ -959,6 +1004,25 @@ function cycleTaskPriority(taskId, event) {
   task.updatedAt = new Date().toISOString();
   saveTasks();
   render();
+}
+
+function cycleTaskStatus(taskId, event) {
+  if (event) event.stopPropagation();
+  const task = STATE.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const sequence = ['todo', 'in_progress', 'on_hold', 'completed'];
+  const currentIndex = sequence.indexOf(task.status);
+  const nextStatus = sequence[(currentIndex + 1) % sequence.length];
+
+  if (nextStatus === 'in_progress') {
+    startTimerForTask(taskId);
+  } else if (nextStatus === 'on_hold') {
+    putTaskOnHold(taskId);
+  } else if (nextStatus === 'completed') {
+    completeAndCloseTask(taskId);
+  } else {
+    reopenTask(taskId);
+  }
 }
 
 function quickMoveTaskCategory(taskId, newCategory, event) {
@@ -1177,9 +1241,25 @@ function renderTaskCard(task) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
         Pause
       </button>
+      <button class="btn btn-warning-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="putTaskOnHold('${task.id}')" title="Put On Hold">
+        ⏸ Hold
+      </button>
       <button class="btn btn-success" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;" onclick="completeAndCloseTask('${task.id}')" title="Close Task & Calculate Time Taken">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
         Close & Calculate
+      </button>
+    `;
+  } else if (task.status === 'on_hold') {
+    actionButtonsHtml = `
+      <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;" onclick="startTimerForTask('${task.id}')" title="Resume and Start Timer">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Resume
+      </button>
+      <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="reopenTask('${task.id}')" title="Move back to To Do">
+        To Do
+      </button>
+      <button class="btn btn-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="completeAndCloseTask('${task.id}')" title="Mark Closed Directly">
+        Done
       </button>
     `;
   } else {
@@ -1188,6 +1268,9 @@ function renderTaskCard(task) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
         Start Task
       </button>
+      <button class="btn btn-warning-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="putTaskOnHold('${task.id}')" title="Put On Hold">
+        ⏸ Hold
+      </button>
       <button class="btn btn-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="completeAndCloseTask('${task.id}')" title="Mark Closed Directly">
         Done
       </button>
@@ -1195,7 +1278,7 @@ function renderTaskCard(task) {
   }
 
   return `
-    <div class="task-card ${isRunning ? 'is-active-running' : ''} ${isCompleted ? 'is-completed' : ''}" 
+    <div class="task-card ${isRunning ? 'is-active-running' : ''} ${isCompleted ? 'is-completed' : ''} ${task.status === 'on_hold' ? 'is-on-hold' : ''}" 
          id="task-card-${task.id}" 
          draggable="true" 
          ondragstart="handleDragStart(event, '${task.id}')">
@@ -1208,8 +1291,10 @@ function renderTaskCard(task) {
                 title="Priority: ${task.priority.toUpperCase()} (Click to change)">
             ${task.priority.toUpperCase()}
           </span>
-          <span class="status-badge ${task.status}">
-            ${task.status === 'in_progress' ? '⚡️ In Progress' : task.status === 'completed' ? '✓ Closed' : 'To Do'}
+          <span class="status-badge ${task.status}" 
+                onclick="cycleTaskStatus('${task.id}', event)" 
+                title="Status: ${task.status === 'in_progress' ? 'In Progress' : task.status === 'completed' ? 'Closed' : task.status === 'on_hold' ? 'On Hold' : 'To Do'} (Click to change)">
+            ${task.status === 'in_progress' ? '⚡️ In Progress' : task.status === 'completed' ? '✓ Closed' : task.status === 'on_hold' ? '⏸️ On Hold' : 'To Do'}
           </span>
         </div>
 
@@ -1297,6 +1382,9 @@ function openCreateModal(defaultCategory = 'discussions') {
   document.getElementById('taskForm').reset();
   document.getElementById('formCategory').value = defaultCategory;
   document.getElementById('formPriority').value = 'urgent';
+  if (document.getElementById('formStatus')) {
+    document.getElementById('formStatus').value = 'todo';
+  }
   document.getElementById('formEstimatedMinutes').value = 45;
   document.getElementById('formReminderTime').value = '';
   document.getElementById('deleteTaskBtn').style.display = 'none';
@@ -1313,6 +1401,9 @@ function openEditModal(taskId) {
   document.getElementById('formTitle').value = task.title || '';
   document.getElementById('formCategory').value = task.category || 'discussions';
   document.getElementById('formPriority').value = task.priority || 'medium';
+  if (document.getElementById('formStatus')) {
+    document.getElementById('formStatus').value = task.status || 'todo';
+  }
   document.getElementById('formEstimatedMinutes').value = task.estimatedMinutes || 30;
   document.getElementById('formReminderTime').value = task.reminderTime ? task.reminderTime.slice(0, 16) : '';
   document.getElementById('formNotes').value = task.notes || '';
@@ -1366,6 +1457,8 @@ function handleTaskFormSubmit(e) {
 
   const category = document.getElementById('formCategory').value;
   const priority = document.getElementById('formPriority').value;
+  const formStatus = document.getElementById('formStatus');
+  const selectedStatus = formStatus ? formStatus.value : 'todo';
   const estimatedMinutes = parseInt(document.getElementById('formEstimatedMinutes').value, 10) || 0;
   const reminderTime = document.getElementById('formReminderTime').value || null;
   const notes = document.getElementById('formNotes').value.trim();
@@ -1378,6 +1471,7 @@ function handleTaskFormSubmit(e) {
     // Edit existing task
     const task = STATE.tasks.find(t => t.id === currentEditingTaskId);
     if (task) {
+      const prevStatus = task.status;
       task.title = title;
       task.category = category;
       task.priority = priority;
@@ -1389,6 +1483,18 @@ function handleTaskFormSubmit(e) {
       task.notes = notes;
       task.tags = tags;
       task.updatedAt = new Date().toISOString();
+
+      if (prevStatus !== selectedStatus) {
+        if (selectedStatus === 'in_progress') {
+          startTimerForTask(task.id);
+        } else if (selectedStatus === 'on_hold') {
+          putTaskOnHold(task.id);
+        } else if (selectedStatus === 'completed') {
+          completeAndCloseTask(task.id);
+        } else if (selectedStatus === 'todo') {
+          reopenTask(task.id);
+        }
+      }
     }
   } else {
     // Create new task
@@ -1397,7 +1503,7 @@ function handleTaskFormSubmit(e) {
       title,
       category,
       priority,
-      status: 'todo',
+      status: selectedStatus || 'todo',
       estimatedMinutes,
       timeSpentSeconds: 0,
       timerStartedAt: null,
@@ -1411,6 +1517,9 @@ function handleTaskFormSubmit(e) {
       updatedAt: new Date().toISOString()
     };
     STATE.tasks.push(newTask);
+    if (selectedStatus === 'in_progress') {
+      startTimerForTask(newTask.id);
+    }
   }
 
   saveTasks();
@@ -1564,6 +1673,8 @@ function handleKanbanDrop(e, targetStatus) {
     startTimerForTask(taskId);
   } else if (targetStatus === 'completed') {
     completeAndCloseTask(taskId);
+  } else if (targetStatus === 'on_hold') {
+    putTaskOnHold(taskId);
   } else if (targetStatus === 'todo') {
     reopenTask(taskId);
   }
