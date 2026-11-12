@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Office Task Planner & Time Tracker</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+</head>
+<body>
+
+  <!-- Top App Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1>Task Planner</h1>
+          <div class="brand-subtitle">Office Workflow, Priority Queue & Timer</div>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button class="btn btn-primary" onclick="openCreateModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New Task</span>
+        </button>
+
+        <button class="btn btn-secondary" onclick="openStandupModal()" title="Generate Daily Office Standup Report">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span>Standup Report</span>
+        </button>
+
+        <button class="btn btn-ghost btn-icon" onclick="requestNotificationPermission()" title="Enable Desktop Reminders">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </button>
+
+        <button class="btn btn-ghost btn-icon" onclick="exportData()" title="Backup Tasks (JSON Export)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+
+        <button class="btn btn-ghost btn-icon" onclick="document.getElementById('importFileInput').click()" title="Restore Tasks (JSON Import)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </button>
+        <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importData(event)">
+
+        <button class="btn btn-ghost btn-icon" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Active Task Timer HUD Banner -->
+  <aside id="activeTimerHud" class="active-timer-hud" aria-label="Active Task Stopwatch">
+    <div class="timer-hud-container">
+      <div class="timer-hud-left">
+        <div class="pulse-indicator"></div>
+        <div class="timer-task-details">
+          <span class="timer-task-badge" id="hudCategoryBadge">CATEGORY</span>
+          <span class="timer-task-title" id="hudTaskTitle">Task Title</span>
+        </div>
+      </div>
+
+      <div class="timer-hud-center">
+        <div class="stopwatch-display" id="hudStopwatch">00:00:00</div>
+        <div class="timer-progress-wrap">
+          <div class="timer-progress-meta">
+            <span>Time Progress</span>
+            <span id="hudProgressMeta">0% of estimate</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="hudProgressFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="timer-hud-actions">
+        <button class="btn btn-secondary" id="hudPauseBtn" title="Pause Task Timer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          <span>Pause</span>
+        </button>
+        <button class="btn btn-success" id="hudCompleteBtn" title="Close Task & Calculate Elapsed Time">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Close & Calculate</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main class="app-main">
+    <!-- Toolbar: Search, Filters, Sort & View Switcher -->
+    <section class="toolbar-section">
+      <div class="toolbar-left">
+        <div class="search-box">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search tasks, notes, tags...">
+        </div>
+
+        <select id="priorityFilter" class="filter-select" title="Filter by priority">
+          <option value="all">All Priorities</option>
+          <option value="urgent">🔴 Urgent</option>
+          <option value="high">🟠 High</option>
+          <option value="medium">🔵 Medium</option>
+          <option value="low">⚪️ Low</option>
+        </select>
+
+        <select id="statusFilter" class="filter-select" title="Filter by status">
+          <option value="all">All Statuses</option>
+          <option value="todo">📝 To Do</option>
+          <option value="in_progress">⚡️ In Progress</option>
+          <option value="completed">✅ Closed</option>
+        </select>
+
+        <select id="sortBySelect" class="filter-select" title="Sort order">
+          <option value="priority">Sort: Priority (Urgent → Low)</option>
+          <option value="due">Sort: Due Date / Reminder</option>
+          <option value="estimate">Sort: Estimated Time</option>
+          <option value="recent">Sort: Recently Added</option>
+        </select>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="view-toggle-group">
+          <button class="view-btn active" data-view="categories" title="Categorized Board View">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="18"></rect>
+              <rect x="14" y="3" width="7" height="18"></rect>
+            </svg>
+            <span>Categories</span>
+          </button>
+          <button class="view-btn" data-view="kanban" title="Workflow Kanban View">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+            <span>Kanban</span>
+          </button>
+          <button class="view-btn" data-view="analytics" title="Office Time Analytics & Reports">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Analytics</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dynamic Content Container -->
+    <section id="viewContainer">
+      <!-- Injected via JavaScript -->
+    </section>
+  </main>
+
+  <!-- Task Create & Edit Modal -->
+  <div id="taskModal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modalTitle" class="modal-title">Create Task</h2>
+        <button class="btn btn-ghost btn-icon" onclick="closeTaskModal()" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <form id="taskForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="formTitle">Task Title *</label>
+            <input type="text" id="formTitle" class="form-input" placeholder="e.g. Discuss API spec with backend team..." required>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="formCategory">Office Section / Category *</label>
+              <select id="formCategory" class="form-select" required>
+                <option value="discussions">💬 Ongoing discussions</option>
+                <option value="issues">🚨 Issues handling</option>
+                <option value="research">🔬 Research work</option>
+                <option value="additional">📋 Additional work</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="formPriority">Priority *</label>
+              <select id="formPriority" class="form-select" required>
+                <option value="urgent">🔴 Urgent (P0 / Critical)</option>
+                <option value="high">🟠 High (P1)</option>
+                <option value="medium" selected>🔵 Medium (P2)</option>
+                <option value="low">⚪️ Low (P3)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="formEstimatedMinutes">Time Estimate (minutes)</label>
+              <input type="number" id="formEstimatedMinutes" class="form-input" min="1" max="1440" step="5" placeholder="45" value="45">
+              <div class="quick-estimate-chips">
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(15)">15m</button>
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(30)">30m</button>
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(45)">45m</button>
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(60)">1h</button>
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(90)">1.5h</button>
+                <button type="button" class="chip-btn" onclick="setQuickEstimate(120)">2h</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="formReminderTime">Reminder Date & Time</label>
+              <input type="datetime-local" id="formReminderTime" class="form-input">
+              <div class="quick-estimate-chips">
+                <button type="button" class="chip-btn" onclick="setQuickReminder('30m')">+30m</button>
+                <button type="button" class="chip-btn" onclick="setQuickReminder('1h')">+1h</button>
+                <button type="button" class="chip-btn" onclick="setQuickReminder('today_eod')">5:30 PM</button>
+                <button type="button" class="chip-btn" onclick="setQuickReminder('tomorrow_morning')">Tmrw 10AM</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="formNotes">Notes, Discussion Points & Action Items</label>
+            <textarea id="formNotes" class="form-textarea" rows="4" placeholder="Agenda items, error trace, context, links..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="formTags">Tags / Labels (comma separated)</label>
+            <input type="text" id="formTags" class="form-input" placeholder="e.g. Roadmap, Backend, Q4, P0">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="deleteTaskBtn" class="btn btn-danger" style="margin-right: auto; display: none;" onclick="deleteCurrentEditingTask()">
+            Delete Task
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Task Completion & Calculation Summary Modal -->
+  <div id="completionModal" class="modal-backdrop">
+    <div class="modal-container" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Task Summary & Calculation</h2>
+        <button class="btn btn-ghost btn-icon" onclick="closeCompletionModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="completionModalBody">
+        <!-- Injected via showCompletionModal -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" style="width: 100%;" onclick="closeCompletionModal()">
+          Done & Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standup Report Modal -->
+  <div id="standupModal" class="modal-backdrop">
+    <div class="modal-container" style="max-width: 640px;">
+      <div class="modal-header">
+        <h2 class="modal-title">📋 Daily Standup Summary</h2>
+        <button class="btn btn-ghost btn-icon" onclick="closeStandupModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          Formatted markdown report of what you worked on, current in-progress tasks, and upcoming priorities ready to paste into Slack, Teams, or email:
+        </p>
+        <pre id="standupPreview" class="standup-preview"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeStandupModal()">Close</button>
+        <button type="button" class="btn btn-primary" id="copyStandupBtn" onclick="copyStandupReport()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy to Clipboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- In-app Reminder Toast Notification Container -->
+  <div id="reminderToastContainer" class="reminder-toast-container" aria-live="polite"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "private-task-handler",
+  "version": "1.0.0",
+  "description": "Daily Office Task Planner with Priority Sorting, Time Tracking, and Reminder System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "task-planner",
+    "productivity",
+    "office-tasks",
+    "time-tracking",
+    "reminders",
+    "priority-queue"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
